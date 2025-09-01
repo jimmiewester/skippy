@@ -55,13 +55,6 @@ check_prerequisites() {
         exit 1
     fi
     
-    # Check Python version
-    PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    if [[ $(echo "$PYTHON_VER < 3.8" | bc -l) -eq 1 ]]; then
-        print_error "Python 3.8+ is required. Found version $PYTHON_VER"
-        exit 1
-    fi
-    
     # Check if systemd is available
     if ! command -v systemctl &> /dev/null; then
         print_error "systemd is not available on this system."
