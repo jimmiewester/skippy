@@ -32,10 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency to get webhook service
-def get_webhook_service():
-    return WebhookService()
-
 # Dependency to get SMS service
 def get_sms_service():
     return SMSService()
@@ -45,8 +41,6 @@ def get_sms_service():
 async def startup_event():
     """Initialize services on startup."""
     logger.info("Starting Skippy webhook service...")
-    webhook_service = WebhookService()
-    await webhook_service.initialize()
     
     sms_service = SMSService()
     await sms_service.initialize()
@@ -62,119 +56,6 @@ async def health_check():
         "service": settings.app_name,
         "version": "1.0.0"
     }
-
-
-@app.post("/webhooks", response_model=WebhookResponse)
-async def create_webhook(
-    webhook: WebhookCreate,
-    webhook_service: WebhookService = Depends(get_webhook_service)
-):
-    """Create a new webhook."""
-    try:
-        webhook_response = await webhook_service.create_webhook(webhook)
-        
-        # Queue the webhook for processing
-        process_webhook_task.delay(webhook_response.id)
-        
-        return webhook_response
-    except Exception as e:
-        logger.error(f"Error creating webhook: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create webhook")
-
-
-@app.get("/webhooks", response_model=List[WebhookResponse])
-async def list_webhooks(
-    limit: int = 100,
-    webhook_service: WebhookService = Depends(get_webhook_service)
-):
-    """List all webhooks."""
-    try:
-        return await webhook_service.list_webhooks(limit=limit)
-    except Exception as e:
-        logger.error(f"Error listing webhooks: {e}")
-        raise HTTPException(status_code=500, detail="Failed to list webhooks")
-
-
-@app.get("/webhooks/{webhook_id}", response_model=WebhookResponse)
-async def get_webhook(
-    webhook_id: str,
-    webhook_service: WebhookService = Depends(get_webhook_service)
-):
-    """Get a specific webhook by ID."""
-    try:
-        webhook = await webhook_service.get_webhook(webhook_id)
-        if not webhook:
-            raise HTTPException(status_code=404, detail="Webhook not found")
-        return webhook
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting webhook {webhook_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get webhook")
-
-
-@app.put("/webhooks/{webhook_id}", response_model=WebhookResponse)
-async def update_webhook(
-    webhook_id: str,
-    webhook_update: WebhookUpdate,
-    webhook_service: WebhookService = Depends(get_webhook_service)
-):
-    """Update a webhook."""
-    try:
-        webhook = await webhook_service.update_webhook(webhook_id, webhook_update)
-        if not webhook:
-            raise HTTPException(status_code=404, detail="Webhook not found")
-        return webhook
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating webhook {webhook_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update webhook")
-
-
-@app.delete("/webhooks/{webhook_id}")
-async def delete_webhook(
-    webhook_id: str,
-    webhook_service: WebhookService = Depends(get_webhook_service)
-):
-    """Delete a webhook."""
-    try:
-        success = await webhook_service.delete_webhook(webhook_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Webhook not found")
-        return {"message": "Webhook deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting webhook {webhook_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to delete webhook")
-
-
-@app.post("/webhooks/{webhook_id}/process")
-async def process_webhook(
-    webhook_id: str,
-    webhook_service: WebhookService = Depends(get_webhook_service)
-):
-    """Manually trigger webhook processing."""
-    try:
-        webhook = await webhook_service.get_webhook(webhook_id)
-        if not webhook:
-            raise HTTPException(status_code=404, detail="Webhook not found")
-        
-        # Queue the webhook for processing
-        process_webhook_task.delay(webhook_id)
-        
-        return {"message": "Webhook queued for processing"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error processing webhook {webhook_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process webhook")
-
-
-# ============================================================================
-# SMS Endpoints
-# ============================================================================
 
 @app.post("/elks/sms")
 async def receive_sms_webhook(
@@ -224,86 +105,6 @@ async def receive_sms_webhook(
             media_type="text/plain",
             status_code=500
         )
-
-
-@app.get("/sms", response_model=List[SMSResponse])
-async def list_sms(
-    limit: int = 100,
-    sms_service: SMSService = Depends(get_sms_service)
-):
-    """List all SMS messages."""
-    try:
-        return await sms_service.list_sms(limit=limit)
-    except Exception as e:
-        logger.error(f"Error listing SMS: {e}")
-        raise HTTPException(status_code=500, detail="Failed to list SMS messages")
-
-
-@app.get("/sms/{sms_id}", response_model=SMSResponse)
-async def get_sms(
-    sms_id: str,
-    sms_service: SMSService = Depends(get_sms_service)
-):
-    """Get a specific SMS by ID."""
-    try:
-        sms = await sms_service.get_sms(sms_id)
-        if not sms:
-            raise HTTPException(status_code=404, detail="SMS not found")
-        return sms
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting SMS {sms_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get SMS")
-
-
-@app.post("/sms/{sms_id}/reply")
-async def send_sms_reply(
-    sms_id: str,
-    reply: SMSReply,
-    sms_service: SMSService = Depends(get_sms_service)
-):
-    """Send a reply to an SMS."""
-    try:
-        # Get the original SMS
-        sms = await sms_service.get_sms(sms_id)
-        if not sms:
-            raise HTTPException(status_code=404, detail="SMS not found")
-        
-        # Determine recipient number
-        to_number = reply.to_number or sms.from_number
-        
-        # Queue the reply for sending
-        send_sms_reply_task.delay(sms_id, reply.message, to_number)
-        
-        # Mark reply as sent in database
-        await sms_service.mark_reply_sent(sms_id, reply.message)
-        
-        return {"message": "SMS reply queued for sending"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error sending SMS reply {sms_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send SMS reply")
-
-
-@app.delete("/sms/{sms_id}")
-async def delete_sms(
-    sms_id: str,
-    sms_service: SMSService = Depends(get_sms_service)
-):
-    """Delete an SMS."""
-    try:
-        success = await sms_service.delete_sms(sms_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="SMS not found")
-        return {"message": "SMS deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting SMS {sms_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to delete SMS")
-
 
 if __name__ == "__main__":
     import uvicorn
