@@ -54,6 +54,45 @@ async def health_check():
         "version": "1.0.0"
     }
 
+
+@app.post("/test/sms")
+async def test_sms_webhook(
+    request: Request,
+    sms_service: SMSService = Depends(get_sms_service)
+):
+    """Test SMS webhook endpoint with sample data."""
+    try:
+        # Create test SMS data
+        test_sms_data = {
+            "id": "test_123",
+            "from_number": "+46706861004",
+            "to_number": "+46706860000",
+            "message": "Test message from 46elks",
+            "direction": "incoming",
+            "created": "2023-01-01T00:00:00"
+        }
+        
+        # Create SMS webhook object
+        sms_webhook = SMSWebhook(**test_sms_data)
+        
+        # Store SMS in DynamoDB
+        sms_response = await sms_service.store_sms(sms_webhook)
+        
+        logger.info(f"Test SMS stored with ID: {sms_response.id}")
+        
+        return {
+            "status": "success",
+            "message": "Test SMS processed successfully",
+            "sms_id": sms_response.id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in test SMS webhook: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 @app.post("/elks/sms")
 async def receive_sms_webhook(
     request: Request,
@@ -64,6 +103,9 @@ async def receive_sms_webhook(
         # Parse form data from 46elks webhook
         form_data = await request.form()
         
+        # Debug: Log the received form data
+        logger.info(f"Received form data: {dict(form_data)}")
+        
         # Convert form data to dict and handle URL encoding
         sms_data = {}
         for key, value in form_data.items():
@@ -73,6 +115,9 @@ async def receive_sms_webhook(
                 sms_data["to_number"] = value
             else:
                 sms_data[key] = value
+        
+        # Debug: Log the processed SMS data
+        logger.info(f"Processed SMS data: {sms_data}")
         
         # Create SMS webhook object
         sms_webhook = SMSWebhook(**sms_data)
@@ -97,6 +142,9 @@ async def receive_sms_webhook(
         
     except Exception as e:
         logger.error(f"Error processing SMS webhook: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        if hasattr(e, 'errors'):
+            logger.error(f"Validation errors: {e.errors}")
         return Response(
             content="Error processing SMS",
             media_type="text/plain",
