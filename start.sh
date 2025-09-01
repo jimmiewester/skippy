@@ -1,31 +1,5 @@
 #!/bin/bash
 
-# Skippy Startup Script
-
-echo "🚀 Starting Skippy Webhook Service..."
-
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker is not running. Please start Docker first."
-    exit 1
-fi
-
-# Start Docker services
-echo "📦 Starting Docker services (Redis, DynamoDB Local)..."
-docker-compose up -d
-
-# Wait for services to be ready
-echo "⏳ Waiting for services to be ready..."
-sleep 5
-
-# Check if services are running
-if ! docker-compose ps | grep -q "Up"; then
-    echo "❌ Failed to start Docker services"
-    exit 1
-fi
-
-echo "✅ Docker services started successfully!"
-
 # Install Python dependencies if needed
 if [ ! -d "venv" ]; then
     echo "🐍 Creating virtual environment..."
