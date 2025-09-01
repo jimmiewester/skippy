@@ -54,45 +54,6 @@ async def health_check():
         "version": "1.0.0"
     }
 
-
-@app.post("/test/sms")
-async def test_sms_webhook(
-    request: Request,
-    sms_service: SMSService = Depends(get_sms_service)
-):
-    """Test SMS webhook endpoint with sample data."""
-    try:
-        # Create test SMS data
-        test_sms_data = {
-            "id": "test_123",
-            "from_number": "+46706861004",
-            "to_number": "+46706860000",
-            "message": "Test message from 46elks",
-            "direction": "incoming",
-            "created": "2023-01-01T00:00:00"
-        }
-        
-        # Create SMS webhook object
-        sms_webhook = SMSWebhook(**test_sms_data)
-        
-        # Store SMS in DynamoDB
-        sms_response = await sms_service.store_sms(sms_webhook)
-        
-        logger.info(f"Test SMS stored with ID: {sms_response.id}")
-        
-        return {
-            "status": "success",
-            "message": "Test SMS processed successfully",
-            "sms_id": sms_response.id
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in test SMS webhook: {e}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
 @app.post("/elks/sms")
 async def receive_sms_webhook(
     request: Request,
@@ -125,18 +86,7 @@ async def receive_sms_webhook(
         # Store SMS in DynamoDB
         sms_response = await sms_service.store_sms(sms_webhook)
         
-        # Queue SMS for processing
-        process_sms_task.delay(sms_response.id)
-        
-        # Generate automatic reply
-        reply_message = sms_service.generate_reply_message(sms_webhook.message)
-        
-        logger.info(f"Received SMS from {sms_webhook.from_number}: {sms_webhook.message}")
-        
-        # Return the reply message in the response body (46elks will send this as SMS)
         return Response(
-            content=reply_message,
-            media_type="text/plain",
             status_code=200
         )
         
