@@ -148,8 +148,8 @@ Environment=PATH=${VENV_DIR}/bin
 Environment=PYTHONPATH=${PROJECT_DIR}
 Environment=PYTHONUNBUFFERED=1
 
-# Main application with auto-reload
-ExecStart=${VENV_DIR}/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Main application with auto-reload (restricted to project directory)
+ExecStart=${VENV_DIR}/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir ${PROJECT_DIR}
 
 # Restart configuration
 Restart=always
