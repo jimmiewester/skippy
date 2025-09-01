@@ -49,9 +49,10 @@ source "$VENV_DIR/bin/activate"
 print_status "Upgrading pip..."
 pip install --upgrade pip
 
-# Install missing pydantic-settings specifically
-print_status "Installing pydantic-settings..."
+# Install missing dependencies specifically
+print_status "Installing missing dependencies..."
 pip install pydantic-settings==2.1.0
+pip install python-multipart==0.0.6
 
 # Install all requirements
 print_status "Installing all requirements..."
