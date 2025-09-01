@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     app_name: str = "Skippy"
     debug: bool = False
     
+    # 46elks SMS Configuration (Optional)
+    elks_api_username: Optional[str] = None
+    elks_api_password: Optional[str] = None
+    elks_sms_from_number: Optional[str] = None
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
