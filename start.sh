@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo apt-get install python3 python3-venv python3-pip python3.12-venv -y
+
 # Install Python dependencies if needed
 if [ ! -d "venv" ]; then
     echo "🐍 Creating virtual environment..."

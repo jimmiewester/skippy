@@ -28,6 +28,13 @@ Skippy/
 
 ## Setup
 
+### Option 1: Quick Development Setup
+1. **Run the startup script:**
+   ```bash
+   ./start.sh
+   ```
+
+### Option 2: Manual Setup
 1. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
@@ -46,6 +53,32 @@ Skippy/
 3. **Start services with Docker:**
    ```bash
    docker-compose up -d
+   ```
+
+### Option 3: Production Setup with systemd
+1. **Install as systemd service (with auto-reload):**
+   ```bash
+   ./install-systemd.sh
+   ```
+
+2. **Manage services:**
+   ```bash
+   # Start all services
+   sudo systemctl start skippy*
+   
+   # Check status
+   sudo systemctl status skippy
+   
+   # View logs
+   sudo journalctl -u skippy -f
+   
+   # Stop all services
+   sudo systemctl stop skippy*
+   ```
+
+3. **Uninstall systemd services:**
+   ```bash
+   ./uninstall-systemd.sh
    ```
 
 ## Running the Application
@@ -90,3 +123,5 @@ Skippy/
 - **Type checking:** `mypy app/`
 - **Run tests:** `pytest`
 - **Test SMS:** `python examples/test_sms_webhook.py`
+- **Install systemd:** `./install-systemd.sh`
+- **Uninstall systemd:** `./uninstall-systemd.sh`
