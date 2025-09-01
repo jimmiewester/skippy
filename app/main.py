@@ -5,10 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from app.config import settings
-from app.models.sms import SMSWebhook, SMSResponse, SMSReply
+from app.models.sms import SMSWebhook
 from app.services.sms_service import SMSService
-from app.workers.tasks import process_webhook_task
-from app.workers.sms_tasks import process_sms_task, send_sms_reply_task
+from app.workers.sms_tasks import process_sms_task
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
