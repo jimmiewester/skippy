@@ -1,14 +1,6 @@
 version: '3.8'
 
 services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-
   dynamodb-local:
     image: amazon/dynamodb-local:latest
     ports:
@@ -17,16 +9,5 @@ services:
     volumes:
       - dynamodb_data:/home/dynamodblocal/data
 
-  # Optional: Redis Commander for Redis management UI
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    ports:
-      - "8081:8081"
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-    depends_on:
-      - redis
-
 volumes:
-  redis_data:
   dynamodb_data:

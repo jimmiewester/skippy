@@ -1,11 +1,13 @@
-# Skippy - FastAPI Webhook Service with DynamoDB and Worker Tasks
+# Skippy - FastAPI Webhook Service for 46elks SMS
 
-A Python project featuring:
+A simple Python webhook service that receives SMS messages from 46elks and stores them in DynamoDB.
+
+## Features
+
 - **FastAPI** for webhook endpoints
 - **DynamoDB** for data storage
-- **Celery** for continuous worker tasks
-- **Redis** as message broker
-- **46elks SMS Integration** for receiving and processing SMS messages
+- **46elks SMS Integration** for receiving SMS webhooks
+- **Simple and lightweight** - no complex processing or worker tasks
 
 ## Project Structure
 
@@ -15,113 +17,75 @@ Skippy/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI application
 │   ├── config.py            # Configuration settings
-│   ├── models/              # Pydantic models (webhooks & SMS)
-│   ├── services/            # Business logic (webhooks & SMS)
-│   ├── workers/             # Celery tasks (webhooks & SMS)
-│   └── utils/               # Utility functions
-├── tests/                   # Test files
-├── examples/                # Example scripts
-├── docker-compose.yml       # Docker setup
+│   ├── models/
+│   │   └── sms.py          # SMS webhook model
+│   └── services/
+│       └── dynamodb_service.py  # DynamoDB operations
+├── docker-compose.yml       # Docker setup (DynamoDB local)
 ├── requirements.txt         # Python dependencies
+├── test_webhook.py         # Simple test script
 └── README.md               # This file
 ```
 
 ## Setup
 
-### Option 1: Quick Development Setup
-1. **Run the startup script:**
-   ```bash
-   ./start.sh
-   ```
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-### Option 2: Manual Setup
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 2. Environment Variables
+Create a `.env` file with:
+```env
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+DYNAMODB_TABLE_NAME=skippy_webhooks
+```
 
-2. **Environment variables:**
-   Create a `.env` file with:
-   ```env
-   AWS_ACCESS_KEY_ID=your_access_key
-   AWS_SECRET_ACCESS_KEY=your_secret_key
-   AWS_REGION=us-east-1
-   DYNAMODB_TABLE_NAME=skippy_webhooks
-   REDIS_URL=redis://localhost:6379
-   ```
-
-3. **Start services with Docker:**
-   ```bash
-   docker-compose up -d
-   ```
-
-### Option 3: Production Setup with systemd
-1. **Install as systemd service (with auto-reload):**
-   ```bash
-   ./install-systemd.sh
-   ```
-
-2. **Manage services:**
-   ```bash
-   # Start all services
-   sudo systemctl start skippy*
-   
-   # Check status
-   sudo systemctl status skippy
-   
-   # View logs
-   sudo journalctl -u skippy -f
-   
-   # Stop all services
-   sudo systemctl stop skippy*
-   ```
-
-3. **Uninstall systemd services:**
-   ```bash
-   ./uninstall-systemd.sh
-   ```
+### 3. Start DynamoDB Local (Optional)
+For local development:
+```bash
+docker-compose up -d
+```
 
 ## Running the Application
 
-1. **Start the FastAPI server:**
-   ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-2. **Start the Celery worker:**
-   ```bash
-   celery -A app.workers.celery_app worker --loglevel=info
-   ```
-
-3. **Start the Celery beat scheduler (optional):**
-   ```bash
-   celery -A app.workers.celery_app beat --loglevel=info
-   ```
+Start the FastAPI server:
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
 ## API Endpoints
 
-### Webhooks
 - `GET /health` - Health check
-- `POST /webhooks` - Receive webhook data
-- `GET /webhooks` - List webhooks
-- `GET /webhooks/{webhook_id}` - Get specific webhook
-- `PUT /webhooks/{webhook_id}` - Update webhook
-- `DELETE /webhooks/{webhook_id}` - Delete webhook
-- `POST /webhooks/{webhook_id}/process` - Manually trigger processing
-
-### SMS (46elks Integration)
 - `POST /elks/sms` - Receive SMS webhook from 46elks
-- `GET /sms` - List all SMS messages
-- `GET /sms/{sms_id}` - Get specific SMS
-- `POST /sms/{sms_id}/reply` - Send SMS reply
-- `DELETE /sms/{sms_id}` - Delete SMS
 
-## Development
+## Testing
 
-- **Format code:** `black app/ tests/`
-- **Lint code:** `flake8 app/ tests/`
-- **Type checking:** `mypy app/`
-- **Run tests:** `pytest`
-- **Test SMS:** `python examples/test_sms_webhook.py`
-- **Install systemd:** `./install-systemd.sh`
-- **Uninstall systemd:** `./uninstall-systemd.sh`
+Run the test script to verify the webhook endpoint:
+```bash
+python test_webhook.py
+```
+
+## 46elks Integration
+
+The service expects SMS webhooks from 46elks with the following fields:
+- `id` - Unique message ID
+- `from` - Sender phone number
+- `to` - Recipient phone number  
+- `message` - SMS content
+- `direction` - Message direction (incoming/outgoing)
+- `created` - UTC timestamp
+
+## DynamoDB Schema
+
+Webhooks are stored with the following structure:
+- `id` - Unique webhook ID (partition key)
+- `event_type` - Type of event (e.g., "sms_received")
+- `payload` - Full SMS data from 46elks
+- `source` - Source system ("46elks")
+- `headers` - HTTP headers from the webhook
+- `processed` - Processing status
+- `created_at` - Webhook creation timestamp
+- `updated_at` - Last update timestamp

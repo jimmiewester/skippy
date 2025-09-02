@@ -1,13 +1,11 @@
 import logging
-from typing import List
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from app.config import settings
 from app.models.sms import SMSWebhook
-from app.services.sms_service import SMSService
-from app.workers.sms_tasks import process_sms_task
+from app.services.dynamodb_service import DynamoDBService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
-    description="A webhook service with DynamoDB storage and worker tasks",
+    description="A webhook service for receiving elk46 SMS and storing in DynamoDB",
     version="1.0.0"
 )
 
@@ -29,9 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency to get SMS service
-def get_sms_service():
-    return SMSService()
+# Global DynamoDB service instance
+db_service = DynamoDBService()
 
 
 @app.on_event("startup")
@@ -39,8 +36,8 @@ async def startup_event():
     """Initialize services on startup."""
     logger.info("Starting Skippy webhook service...")
     
-    sms_service = SMSService()
-    await sms_service.initialize()
+    # Initialize DynamoDB table
+    await db_service.create_table_if_not_exists()
     
     logger.info("Skippy webhook service started successfully!")
 
@@ -54,12 +51,10 @@ async def health_check():
         "version": "1.0.0"
     }
 
+
 @app.post("/elks/sms")
-async def receive_sms_webhook(
-    request: Request,
-    sms_service: SMSService = Depends(get_sms_service)
-):
-    """Receive SMS webhook from 46elks."""
+async def receive_sms_webhook(request: Request):
+    """Receive SMS webhook from 46elks and store in DynamoDB."""
     try:
         # Parse form data from 46elks webhook
         form_data = await request.form()
@@ -83,12 +78,18 @@ async def receive_sms_webhook(
         # Create SMS webhook object
         sms_webhook = SMSWebhook(**sms_data)
         
-        # Store SMS in DynamoDB
-        sms_response = await sms_service.store_sms(sms_webhook)
+        # Store in DynamoDB
+        webhook_data = {
+            'event_type': 'sms_received',
+            'payload': sms_webhook.dict(),
+            'source': '46elks',
+            'headers': dict(request.headers)
+        }
         
-        return Response(
-            status_code=200
-        )
+        stored_webhook = await db_service.create_webhook(webhook_data)
+        logger.info(f"Stored webhook with ID: {stored_webhook['id']}")
+        
+        return Response(status_code=200)
         
     except Exception as e:
         logger.error(f"Error processing SMS webhook: {e}")
@@ -100,6 +101,7 @@ async def receive_sms_webhook(
             media_type="text/plain",
             status_code=500
         )
+
 
 if __name__ == "__main__":
     import uvicorn
